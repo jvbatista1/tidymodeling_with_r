@@ -2,7 +2,7 @@ library(modeldata) # This is also loaded by the tidymodels package
 data(ames)
 
 # or, in one line:
-data(ames, package = "modeldata")
+#data(ames, package = "modeldata")
 
 dim(ames)
 
@@ -38,9 +38,9 @@ dim(ames_train)
 
 ##### 6. FITTING MODELS WITH parsnip ######
 ##### 6.1 CREATE A MODEL #####
-model <- lm(formula, data, ...)
-model <- stan_glm(formula, data, family = "gaussian", ...)
-model <- glmnet(x = matrix, y = vector, family = "gaussian", ...)
+#model <- lm(formula, data, ...)
+#model <- stan_glm(formula, data, family = "gaussian", ...)
+#model <- glmnet(x = matrix, y = vector, family = "gaussian", ...)
 
 library(tidymodels)
 tidymodels_prefer()
@@ -134,3 +134,29 @@ ames_test  <-  testing(ames_split)
 lm_model <- linear_reg() %>% set_engine("lm")
 
 ##### 7. A MODEL WORKFLOW #####
+##### 7.1 Where does the model begin and end? #####
+##### 7.2 Workflow basics #####
+
+library(tidymodels)  # Includes the workflows package
+tidymodels_prefer()
+
+lm_model <- 
+  linear_reg() %>% 
+  set_engine("lm")
+
+lm_wflow <- 
+  workflow() %>% 
+  add_model(lm_model)
+
+lm_wflow
+
+lm_wflow <- 
+  lm_wflow %>% 
+  add_formula(Sale_Price ~ Longitude + Latitude)
+
+lm_wflow
+
+lm_fit <- fit(lm_wflow, ames_train)
+lm_fit
+
+predict(lm_fit, ames_test %>% slice(1:3))
