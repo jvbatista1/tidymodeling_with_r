@@ -238,7 +238,7 @@ fitted_lm_wflow <- extract_workflow(final_lm_res)
 collect_metrics(final_lm_res)
 collect_predictions(final_lm_res) %>% slice(1:5)
 
-##### 7.5 Chapter summary #####
+##### 7.7 Chapter summary #####
 library(tidymodels)
 data(ames)
 
@@ -255,5 +255,134 @@ lm_wflow <-
   workflow() %>% 
   add_model(lm_model) %>% 
   add_variables(outcome = Sale_Price, predictors = c(Longitude, Latitude))
+
+lm_fit <- fit(lm_wflow, ames_train)
+
+##### 8. FEATURE ENGINEERING WITH RECIPES #####
+##### 8.1 A simple recipe() for the Ames housing data #####
+lm(Sale_Price ~ Neighborhood + log10(Gr_Liv_Area) + Year_Built + Bldg_Type, data = ames)
+
+library(tidymodels) # Includes the recipes package
+tidymodels_prefer()
+
+simple_ames <- 
+  recipe(Sale_Price ~ Neighborhood + Gr_Liv_Area + Year_Built + Bldg_Type,
+         data = ames_train) %>%
+  step_log(Gr_Liv_Area, base = 10) %>% 
+  step_dummy(all_nominal_predictors())
+simple_ames
+
+##### 8.2 Using recipes ##### 
+lm_wflow %>% 
+  add_recipe(simple_ames)
+
+lm_wflow <- 
+  lm_wflow %>% 
+  remove_variables() %>% 
+  add_recipe(simple_ames)
+lm_wflow
+
+lm_fit <- fit(lm_wflow, ames_train)
+
+predict(lm_fit, ames_test %>% slice(1:3))
+
+# Get the recipe after it has been estimated:
+lm_fit %>% 
+  extract_recipe(estimated = TRUE)
+
+# To tidy the model fit: 
+lm_fit %>% 
+  # This returns the parsnip object:
+  extract_fit_parsnip() %>% 
+  # Now tidy the linear model object:
+  tidy() %>% 
+  slice(1:5)
+
+##### 8.3 How data are used by the recipe() #####
+##### 8.4 Examples of recipe steps #####
+##### 8.4.1 Encoding qualitative data in a numeric format #####
+simple_ames <- 
+  recipe(Sale_Price ~ Neighborhood + Gr_Liv_Area + Year_Built + Bldg_Type,
+         data = ames_train) %>%
+  step_log(Gr_Liv_Area, base = 10) %>% 
+  step_other(Neighborhood, threshold = 0.01) %>% 
+  step_dummy(all_nominal_predictors())
+
+##### 8.4.2 Interaction terms #####
+ggplot(ames_train, aes(x = Gr_Liv_Area, y = 10^Sale_Price)) + 
+  geom_point(alpha = .2) + 
+  facet_wrap(~ Bldg_Type) + 
+  geom_smooth(method = lm, formula = y ~ x, se = FALSE, color = "lightblue") + 
+  scale_x_log10() + 
+  scale_y_log10() + 
+  labs(x = "Gross Living Area", y = "Sale Price (USD)")
+
+#Sale_Price ~ Neighborhood + log10(Gr_Liv_Area) + Bldg_Type + 
+#  log10(Gr_Liv_Area):Bldg_Type
+# or
+#Sale_Price ~ Neighborhood + log10(Gr_Liv_Area) * Bldg_Type
+
+simple_ames <- 
+  recipe(Sale_Price ~ Neighborhood + Gr_Liv_Area + Year_Built + Bldg_Type,
+         data = ames_train) %>%
+  step_log(Gr_Liv_Area, base = 10) %>% 
+  step_other(Neighborhood, threshold = 0.01) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  # Gr_Liv_Area is on the log scale from a previous step
+  step_interact( ~ Gr_Liv_Area:starts_with("Bldg_Type_") )
+
+##### 8.4.3 Spline functions #####
+library(patchwork)
+library(splines)
+
+plot_smoother <- function(deg_free) {
+  ggplot(ames_train, aes(x = Latitude, y = 10^Sale_Price)) + 
+    geom_point(alpha = .2) + 
+    scale_y_log10() +
+    geom_smooth(
+      method = lm,
+      formula = y ~ ns(x, df = deg_free),
+      color = "lightblue",
+      se = FALSE
+    ) +
+    labs(title = paste(deg_free, "Spline Terms"),
+         y = "Sale Price (USD)")
+}
+
+( plot_smoother(2) + plot_smoother(5) ) / ( plot_smoother(20) + plot_smoother(100) )
+
+recipe(Sale_Price ~ Neighborhood + Gr_Liv_Area + Year_Built + Bldg_Type + Latitude,
+       data = ames_train) %>%
+  step_log(Gr_Liv_Area, base = 10) %>% 
+  step_other(Neighborhood, threshold = 0.01) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_interact( ~ Gr_Liv_Area:starts_with("Bldg_Type_") ) %>% 
+  step_ns(Latitude, deg_free = 20)
+
+##### 8.8 Chapter summary #####
+library(tidymodels)
+data(ames)
+ames <- mutate(ames, Sale_Price = log10(Sale_Price))
+
+set.seed(502)
+ames_split <- initial_split(ames, prop = 0.80, strata = Sale_Price)
+ames_train <- training(ames_split)
+ames_test  <-  testing(ames_split)
+
+ames_rec <- 
+  recipe(Sale_Price ~ Neighborhood + Gr_Liv_Area + Year_Built + Bldg_Type + 
+           Latitude + Longitude, data = ames_train) %>%
+  step_log(Gr_Liv_Area, base = 10) %>% 
+  step_other(Neighborhood, threshold = 0.01) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_interact( ~ Gr_Liv_Area:starts_with("Bldg_Type_") ) %>% 
+  step_ns(Latitude, Longitude, deg_free = 20)
+
+lm_model <- linear_reg() %>% set_engine("lm")
+
+lm_wflow <- 
+  workflow() %>% 
+  add_model(lm_model) %>% 
+  add_recipe(ames_rec)
 
 lm_fit <- fit(lm_wflow, ames_train)
