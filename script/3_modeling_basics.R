@@ -160,3 +160,19 @@ lm_fit <- fit(lm_wflow, ames_train)
 lm_fit
 
 predict(lm_fit, ames_test %>% slice(1:3))
+
+lm_fit %>% update_formula(Sale_Price ~ Longitude)
+
+##### 7.3 Adding raw variables to the workflow() #####
+lm_wflow <- 
+  lm_wflow %>% 
+  remove_formula() %>% 
+  add_variables(outcome = Sale_Price, predictors = c(Longitude, Latitude))
+lm_wflow
+
+#predictors = c(ends_with("tude"))
+#predictors = everything()
+
+fit(lm_wflow, ames_train)
+
+##### 7.4 How does a workflow() use the formula? #####
