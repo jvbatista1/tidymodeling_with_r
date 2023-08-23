@@ -479,3 +479,17 @@ sensitivity(hpc_cv, obs, pred, estimator = "macro_weighted")
 
 sensitivity(hpc_cv, obs, pred, estimator = "micro")
 
+roc_auc(hpc_cv, obs, VF, F, M, L)
+
+roc_auc(hpc_cv, obs, VF, F, M, L, estimator = "macro_weighted")
+
+hpc_cv %>% 
+  group_by(Resample) %>% 
+  accuracy(obs, pred)
+
+hpc_cv %>% 
+  group_by(Resample) %>% 
+  roc_curve(obs, VF, F, M, L) %>% 
+  autoplot()
+
+##### 9.5 Chapter summary #####
